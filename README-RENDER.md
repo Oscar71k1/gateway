@@ -66,3 +66,5 @@ Frontend → API Gateway → Microservicios
 - ✅ **Manejo centralizado** de errores
 - ✅ **Fácil escalabilidad** para nuevos servicios
 - ✅ **Monitoreo centralizado**
+
+

@@ -14,7 +14,13 @@ const PAGOS_URL = process.env.PAGOS_URL || 'https://pagos-oqwf.onrender.com';
 
 async function proxyToMicroservice(baseUrl, req, res) {
   try {
-    const path = req.path.replace(/^\/api\/(usuarios|pagos)/, '');
+    let path = req.path.replace(/^\/api\/(usuarios|pagos)/, '');
+    
+    // Si es usuarios, mantener el prefijo /api
+    if (req.path.startsWith('/api/usuarios')) {
+      path = '/api' + path;
+    }
+    
     const url = baseUrl + path;
 
     const response = await axios({

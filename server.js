@@ -10,9 +10,9 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-// URLs de los microservicios (desde variables de entorno)
-const USUARIOS_URL = process.env.USUARIOS_URL || 'http://localhost:3001';
-const PAGOS_URL = process.env.PAGOS_URL || 'http://localhost:3002';
+// URLs de los microservicios (URLs de Vercel)
+const USUARIOS_URL = 'https://usuarios-a454-b9hi0wtfc-ofs-projects-1419b589.vercel.app';
+const PAGOS_URL = 'https://pagos-mtuf-mnyaeva09-ofs-projects-1419b589.vercel.app';
 
 // Función para hacer proxy a microservicios
 async function proxyToMicroservice(baseUrl, req, res) {

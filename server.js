@@ -15,11 +15,14 @@ const PAGOS_URL = process.env.PAGOS_URL || 'https://pagos-oqwf.onrender.com';
 async function wakeUpService(baseUrl) {
   try {
     // Intentar hacer un ping al servicio para despertarlo
-    await axios.get(baseUrl, { timeout: 10000 });
+    await axios.get(baseUrl, { timeout: 15000 });
     console.log(`✅ Servicio despierto: ${baseUrl}`);
     return true;
   } catch (error) {
-    console.log(`⏳ Despertando servicio: ${baseUrl}`);
+    console.log(`⏳ Despertando servicio: ${baseUrl} (${error.response?.status || 'timeout'})`);
+    
+    // Esperar un poco más para que el servicio se despierte
+    await new Promise(resolve => setTimeout(resolve, 3000));
     return false;
   }
 }
@@ -57,7 +60,12 @@ async function proxyToMicroservice(baseUrl, req, res) {
     if (error.response?.status === 502) {
       console.log(`🔄 Reintentando después de error 502...`);
       try {
-        await new Promise(resolve => setTimeout(resolve, 2000)); // Esperar 2 segundos
+        // Esperar más tiempo para que el servicio se despierte completamente
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        
+        // Intentar despertar el servicio nuevamente
+        await wakeUpService(baseUrl);
+        
         const retryResponse = await axios({
           method: req.method,
           url: baseUrl + (req.path.startsWith('/api/usuarios') ? '/api' + req.path.replace('/api/usuarios', '') : req.path.replace('/api/pagos', '')),
@@ -66,12 +74,38 @@ async function proxyToMicroservice(baseUrl, req, res) {
             'Content-Type': 'application/json',
             'Authorization': req.headers.authorization || ''
           },
-          timeout: 45000
+          timeout: 60000 // 60 segundos para el reintento
         });
+        
+        console.log(`✅ Reintento exitoso para ${baseUrl}`);
         res.status(retryResponse.status).json(retryResponse.data);
         return;
       } catch (retryError) {
         console.error(`❌ Error en reintento:`, retryError.message);
+        
+        // Si el segundo reintento también falla, intentar una vez más
+        if (retryError.response?.status === 502) {
+          console.log(`🔄 Segundo reintento...`);
+          try {
+            await new Promise(resolve => setTimeout(resolve, 8000));
+            const secondRetryResponse = await axios({
+              method: req.method,
+              url: baseUrl + (req.path.startsWith('/api/usuarios') ? '/api' + req.path.replace('/api/usuarios', '') : req.path.replace('/api/pagos', '')),
+              data: req.body,
+              headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': req.headers.authorization || ''
+              },
+              timeout: 60000
+            });
+            
+            console.log(`✅ Segundo reintento exitoso para ${baseUrl}`);
+            res.status(secondRetryResponse.status).json(secondRetryResponse.data);
+            return;
+          } catch (secondRetryError) {
+            console.error(`❌ Segundo reintento falló:`, secondRetryError.message);
+          }
+        }
       }
     }
     
@@ -95,18 +129,29 @@ let keepAliveInterval;
 function startKeepAlive() {
   if (keepAliveInterval) return;
   
-  keepAliveInterval = setInterval(async () => {
+  // Ejecutar keep-alive inmediatamente
+  const executeKeepAlive = async () => {
     try {
       console.log('🔄 Ejecutando keep-alive...');
       await Promise.all([
-        axios.get(USUARIOS_URL, { timeout: 10000 }).catch(() => {}),
-        axios.get(PAGOS_URL, { timeout: 10000 }).catch(() => {})
+        axios.get(USUARIOS_URL, { timeout: 15000 }).catch((err) => {
+          console.log(`⚠️ Keep-alive usuarios falló: ${err.response?.status || 'timeout'}`);
+        }),
+        axios.get(PAGOS_URL, { timeout: 15000 }).catch((err) => {
+          console.log(`⚠️ Keep-alive pagos falló: ${err.response?.status || 'timeout'}`);
+        })
       ]);
       console.log('✅ Keep-alive completado');
     } catch (error) {
       console.log('⚠️ Keep-alive falló:', error.message);
     }
-  }, 30000); // Cada 30 segundos
+  };
+  
+  // Ejecutar inmediatamente
+  executeKeepAlive();
+  
+  // Luego cada 20 segundos (más frecuente)
+  keepAliveInterval = setInterval(executeKeepAlive, 20000);
 }
 
 // Ruta de salud del gateway
@@ -136,11 +181,11 @@ if (require.main === module) {
     console.log(`   - Pagos: ${PAGOS_URL}`);
     console.log(`📊 Health check disponible en: http://localhost:${PORT}/health`);
     
-    // Iniciar keep-alive después de 5 segundos
+    // Iniciar keep-alive después de 2 segundos
     setTimeout(() => {
       startKeepAlive();
-      console.log(`🔄 Keep-alive iniciado (cada 30 segundos)`);
-    }, 5000);
+      console.log(`🔄 Keep-alive iniciado (cada 20 segundos)`);
+    }, 2000);
   });
 }
 

@@ -9,8 +9,8 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-const USUARIOS_URL = 'https://usuarios-a454-b9hi0wtfc-ofs-projects-1419b589.vercel.app';
-const PAGOS_URL = 'https://pagos-mtuf-mnyaeva09-ofs-projects-1419b589.vercel.app';
+const USUARIOS_URL = process.env.USUARIOS_URL || 'https://usuarios-vsao.onrender.com';
+const PAGOS_URL = process.env.PAGOS_URL || 'https://pagos-oqwf.onrender.com';
 
 async function proxyToMicroservice(baseUrl, req, res) {
   try {
@@ -52,4 +52,16 @@ app.get('/', (req, res) => {
   res.json({ mensaje: 'Sistema de Gestión de Inscripciones y Pagos', endpoints: { usuarios: '/api/usuarios', pagos: '/api/pagos', salud: '/health' } });
 });
 
+// Iniciar servidor solo si no estamos en Vercel
+if (require.main === module) {
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`🚀 API Gateway ejecutándose en puerto ${PORT}`);
+    console.log(`🔗 Microservicios conectados:`);
+    console.log(`   - Usuarios: ${USUARIOS_URL}`);
+    console.log(`   - Pagos: ${PAGOS_URL}`);
+    console.log(`📊 Health check disponible en: http://localhost:${PORT}/health`);
+  });
+}
+
+// Exportar app para Vercel
 module.exports = app;

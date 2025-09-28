@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: api-gateway
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: USUARIOS_URL
+        value: https://usuarios-vsao.onrender.com
+      - key: PAGOS_URL
+        value: https://pagos-oqwf.onrender.com
